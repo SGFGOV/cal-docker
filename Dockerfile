@@ -18,9 +18,10 @@ ENV NEXT_PUBLIC_WEBAPP_URL=http://NEXT_PUBLIC_WEBAPP_URL_PLACEHOLDER \
     DATABASE_DIRECT_URL=$DATABASE_URL \
     NEXTAUTH_SECRET=${NEXTAUTH_SECRET} \
     CALENDSO_ENCRYPTION_KEY=${CALENDSO_ENCRYPTION_KEY} \
-    NODE_OPTIONS=--max-old-space-size=${MAX_OLD_SPACE_SIZE}
+    NODE_OPTIONS=--max-old-space-size=${MAX_OLD_SPACE_SIZE} \
+    BUILD_STANDALONE=true
 
-COPY calcom/package.json calcom/yarn.lock calcom/.yarnrc.yml calcom/playwright.config.ts calcom/turbo.json calcom/git-init.sh calcom/git-setup.sh ./
+COPY calcom/package.json calcom/yarn.lock calcom/.yarnrc.yml calcom/playwright.config.ts calcom/turbo.json calcom/git-init.sh calcom/git-setup.sh calcom/i18n.json ./
 COPY calcom/.yarn ./.yarn
 COPY calcom/apps/web ./apps/web
 COPY calcom/apps/api/v2 ./apps/api/v2
@@ -32,6 +33,8 @@ RUN npx turbo prune --scope=@calcom/web --docker
 RUN yarn install
 RUN yarn db-deploy
 RUN yarn --cwd packages/prisma seed-app-store
+# Build and make embed servable from web/public/embed folder
+RUN yarn --cwd packages/embeds/embed-core workspace @calcom/embed-core run build
 RUN yarn --cwd apps/web workspace @calcom/web run build
 
 # RUN yarn plugin import workspace-tools && \
@@ -45,8 +48,9 @@ ARG NEXT_PUBLIC_WEBAPP_URL=http://localhost:3000
 
 ENV NODE_ENV production
 
-COPY calcom/package.json calcom/.yarnrc.yml calcom/yarn.lock calcom/turbo.json ./
+COPY calcom/package.json calcom/.yarnrc.yml calcom/turbo.json calcom/i18n.json ./
 COPY calcom/.yarn ./.yarn
+COPY --from=builder /calcom/yarn.lock ./yarn.lock
 COPY --from=builder /calcom/node_modules ./node_modules
 COPY --from=builder /calcom/packages ./packages
 COPY --from=builder /calcom/apps/web ./apps/web
